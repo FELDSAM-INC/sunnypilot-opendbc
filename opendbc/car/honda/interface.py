@@ -115,6 +115,15 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kpBP, ret.lateralTuning.pid.kpV = [[0, 10], [0.05, 0.5]]
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kiV = [[0, 10], [0.0125, 0.125]]
 
+      if candidate == CAR.HONDA_PRELUDE_6G:
+        # Below 30 km/h this car runs out of steering before it runs out of corner. Logs show the
+        # controller pinned at full output for entire corners while the wheel reaches a fraction of
+        # the commanded angle, with STEER_STATUS NORMAL throughout, so the EPS accepts the request
+        # and does not deliver it. Raising STEER_MAX would instead scale every command by the same
+        # factor, since apply_torque is output * STEER_MAX, and that shows up as oversteer at the
+        # speeds where there is no shortage. Stay 1:1 up to 80% output, add the headroom above it.
+        ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 3277, 4096], [0, 3277, 5120]]
+
     elif candidate == CAR.HONDA_ACCORD:
       ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 4096], [0, 4096]]  # TODO: determine if there is a dead zone at the top end
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.6], [0.18]]
