@@ -124,6 +124,14 @@ class CarInterface(CarInterfaceBase):
         # speeds where there is no shortage. Stay 1:1 up to 80% output, add the headroom above it.
         ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 3277, 4096], [0, 3277, 5120]]
 
+        # With the angle now reachable, releasing it became the limit. Angle errors in these corners
+        # run 20-70 deg against a kp of ~0.3, so the output is saturated either fully turning or
+        # fully unwinding, and 3 units/s takes 0.67s to cross between them. Logs show the wheel held
+        # at 178 deg for 0.6s after the controller had asked for full opposite lock, which is the
+        # driver having to push the wheel back mid-corner. Halve that crossing time.
+        CarControllerParams.STEER_DELTA_UP = 6
+        CarControllerParams.STEER_DELTA_DOWN = 6
+
     elif candidate == CAR.HONDA_ACCORD:
       ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 4096], [0, 4096]]  # TODO: determine if there is a dead zone at the top end
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.6], [0.18]]
