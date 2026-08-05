@@ -115,6 +115,15 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kpBP, ret.lateralTuning.pid.kpV = [[0, 10], [0.05, 0.5]]
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kiV = [[0, 10], [0.0125, 0.125]]
 
+      if candidate == CAR.HONDA_PRELUDE_6G:
+        # In low-speed corners this car's angle errors run 20-70 deg, so kp only shapes the
+        # last few degrees before the target; in deep saturation its value is irrelevant.
+        # Softening the low end widens the proportional band from ~3.6 to ~6.7 deg and halves
+        # the output at the crossover, so the wheel arrives at the commanded angle with less
+        # torque still pushing it past. Known cost: below 18 km/h the integrator is frozen, so
+        # moderate unsaturated corners carry ~1-2 deg more standing error.
+        ret.lateralTuning.pid.kpBP, ret.lateralTuning.pid.kpV = [[0, 5, 10], [0.05, 0.15, 0.5]]
+
     elif candidate == CAR.HONDA_ACCORD:
       ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 4096], [0, 4096]]  # TODO: determine if there is a dead zone at the top end
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.6], [0.18]]
