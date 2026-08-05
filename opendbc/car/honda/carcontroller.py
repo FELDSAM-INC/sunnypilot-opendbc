@@ -92,6 +92,31 @@ def process_hud_alert(hud_alert):
   return alert_fcw, alert_steer_required
 
 
+STEER_DELTA_RELEASE = 8  # units/s toward zero, for cars that opt into asymmetric release
+
+
+def rate_limit_release(new_torque, last_torque, apply_rate, release_rate, dt):
+  """Rate limit that releases toward zero faster than it applies.
+
+  The apply direction, including applying torque past zero in the other direction, stays at
+  the normal rate; only the portion of a step that moves the magnitude toward zero uses the
+  release rate. A step that crosses zero spends the release budget to reach zero and the
+  apply budget beyond it."""
+  d = new_torque - last_torque
+  if d == 0:
+    return last_torque
+  sd = 1.0 if d > 0 else -1.0
+  if last_torque != 0 and (last_torque > 0) == (d < 0):
+    to_zero = abs(last_torque)
+    release_step = release_rate * dt
+    if to_zero >= release_step:
+      step = release_step
+    else:
+      step = to_zero + apply_rate * (dt - to_zero / release_rate)
+    return last_torque + sd * min(step, abs(d))
+  return last_torque + sd * min(apply_rate * dt, abs(d))
+
+
 class CarController(CarControllerBase, MadsCarController, GasInterceptorCarController, IntelligentCruiseButtonManagementInterface):
   def __init__(self, dbc_names, CP, CP_SP):
     CarControllerBase.__init__(self, dbc_names, CP, CP_SP)
@@ -131,8 +156,17 @@ class CarController(CarControllerBase, MadsCarController, GasInterceptorCarContr
       gas, brake = 0.0, 0.0
 
     # *** rate limit steer ***
-    limited_torque = rate_limit(actuators.torque, self.last_torque, -self.params.STEER_DELTA_DOWN * DT_CTRL,
-                                self.params.STEER_DELTA_UP * DT_CTRL)
+    if self.CP.carFingerprint == CAR.HONDA_PRELUDE_6G:
+      # Release toward zero faster than apply. Replayed hands-off overshoot events show a
+      # median 73% of full torque still pushing the wheel past the commanded angle when it
+      # arrives; most of that is the 3 units/s crossing time. Applying, including opposite
+      # lock, stays at 3 units/s, which is what made a symmetric increase weave. The EPS
+      # provably tolerates release: torque steps to zero on every disengage.
+      limited_torque = rate_limit_release(actuators.torque, self.last_torque,
+                                          self.params.STEER_DELTA_UP, STEER_DELTA_RELEASE, DT_CTRL)
+    else:
+      limited_torque = rate_limit(actuators.torque, self.last_torque, -self.params.STEER_DELTA_DOWN * DT_CTRL,
+                                  self.params.STEER_DELTA_UP * DT_CTRL)
     self.last_torque = limited_torque
 
     # *** apply brake hysteresis ***
