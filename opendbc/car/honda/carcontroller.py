@@ -93,26 +93,30 @@ def process_hud_alert(hud_alert):
 
 
 STEER_DELTA_RELEASE = 8  # units/s toward zero, for cars that opt into asymmetric release
+STEER_DELTA_RELEASE_FLOOR = 0.4  # below this magnitude, release falls back to the apply rate
 
 
-def rate_limit_release(new_torque, last_torque, apply_rate, release_rate, dt):
-  """Rate limit that releases toward zero faster than it applies.
+def rate_limit_release(new_torque, last_torque, apply_rate, release_rate, dt, floor):
+  """Rate limit that releases toward zero faster than it applies, down to a floor.
 
   The apply direction, including applying torque past zero in the other direction, stays at
-  the normal rate; only the portion of a step that moves the magnitude toward zero uses the
-  release rate. A step that crosses zero spends the release budget to reach zero and the
-  apply budget beyond it."""
+  the normal rate. The fast release only acts while the magnitude is above the floor: below
+  it the limiter is symmetric, so the hand-off through zero has the same gradient as the
+  plain limiter and the wheel is never left ballistic mid-transition. Shedding the bulk of
+  the torque quickly is where the overshoot damping lives; continuity near zero is where
+  direction changes stay smooth."""
   d = new_torque - last_torque
   if d == 0:
     return last_torque
   sd = 1.0 if d > 0 else -1.0
   if last_torque != 0 and (last_torque > 0) == (d < 0):
+    rate = release_rate if abs(last_torque) > floor else apply_rate
     to_zero = abs(last_torque)
-    release_step = release_rate * dt
-    if to_zero >= release_step:
-      step = release_step
+    step_max = rate * dt
+    if to_zero >= step_max:
+      step = step_max
     else:
-      step = to_zero + apply_rate * (dt - to_zero / release_rate)
+      step = to_zero + apply_rate * (dt - to_zero / rate)
     return last_torque + sd * min(step, abs(d))
   return last_torque + sd * min(apply_rate * dt, abs(d))
 
@@ -163,7 +167,8 @@ class CarController(CarControllerBase, MadsCarController, GasInterceptorCarContr
       # lock, stays at 3 units/s, which is what made a symmetric increase weave. The EPS
       # provably tolerates release: torque steps to zero on every disengage.
       limited_torque = rate_limit_release(actuators.torque, self.last_torque,
-                                          self.params.STEER_DELTA_UP, STEER_DELTA_RELEASE, DT_CTRL)
+                                          self.params.STEER_DELTA_UP, STEER_DELTA_RELEASE, DT_CTRL,
+                                          STEER_DELTA_RELEASE_FLOOR)
     else:
       limited_torque = rate_limit(actuators.torque, self.last_torque, -self.params.STEER_DELTA_DOWN * DT_CTRL,
                                   self.params.STEER_DELTA_UP * DT_CTRL)
