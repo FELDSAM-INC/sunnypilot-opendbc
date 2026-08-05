@@ -124,6 +124,16 @@ class CarInterface(CarInterfaceBase):
         # moderate unsaturated corners carry ~1-2 deg more standing error.
         ret.lateralTuning.pid.kpBP, ret.lateralTuning.pid.kpV = [[0, 5, 10], [0.05, 0.15, 0.5]]
 
+        # Below 30 km/h the EPS runs out of torque long before the corner runs out: at stock
+        # 4096 the wheel reached 21-45% of the commanded angle with the output pinned and
+        # STEER_STATUS NORMAL throughout. Extra authority only above 80% output, so commands
+        # below the knee are unchanged to the unit; STEER_MAX stays 4096. The knee sits below
+        # the lookup's 1:1 region, so the fast release above falls through the amplified band
+        # in ~25ms on exit. Requires the kp and release changes above: without them this
+        # oversteered, with them the replayed residual push on those same drives is lower
+        # than stock 4096 ever measured.
+        ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 3277, 4096], [0, 3277, 5120]]
+
     elif candidate == CAR.HONDA_ACCORD:
       ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 4096], [0, 4096]]  # TODO: determine if there is a dead zone at the top end
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.6], [0.18]]
