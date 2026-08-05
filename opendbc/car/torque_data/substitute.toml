@@ -52,6 +52,14 @@ legend = ["LAT_ACCEL_FACTOR", "MAX_LAT_ACCEL_MEASURED", "FRICTION"]
 "HONDA_E" = "HONDA_CIVIC_BOSCH"
 "HONDA_E_ADVANCE" = "HONDA_CIVIC_BOSCH"
 "HONDA_ODYSSEY_TWN" = "HONDA_ODYSSEY"
+# torqued measured FRICTION at 0.248-0.264 on a EU Prelude across ~25 routes over several days,
+# against the 0.15 inherited here from the Civic. Friction comes from the spread perpendicular to
+# the fit and needs no lever arm, so that number holds up. LAT_ACCEL_FACTOR does not: this car's
+# PID output is either near zero or saturated, leaving almost nothing in the linear region, and
+# the two fits disagree by an order of magnitude (total least squares ~7, ordinary least squares
+# ~0.2). An override entry needs all three values, so applying the good friction would mean
+# welding it to a guessed factor. Left substituted until LAT_ACCEL_FACTOR can be measured, which
+# needs the car driven on torque control for long enough to fill the estimator's buckets.
 "HONDA_PRELUDE_6G" = "HONDA_CIVIC_2022"
 
 "BUICK_LACROSSE" = "CHEVROLET_VOLT"
