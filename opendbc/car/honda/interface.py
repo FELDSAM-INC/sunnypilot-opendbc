@@ -136,7 +136,12 @@ class CarInterface(CarInterfaceBase):
 
     elif candidate == CAR.HONDA_ACCORD:
       ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 4096], [0, 4096]]  # TODO: determine if there is a dead zone at the top end
-      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.6], [0.18]]
+      # Flat kp=0.6 saturates the controller output 40-73% of the time below 30 km/h across three
+      # measured routes -- the low-speed relay oscillation the driver feels. The EPS is heavily
+      # speed-scheduled (per firmware RE), so match it: gentle gain at low speed, restoring 0.6 by
+      # highway where the flat value already drove calm (~5% saturation). Civic-2022 schedule shape.
+      ret.lateralTuning.pid.kpBP, ret.lateralTuning.pid.kpV = [[0, 10], [0.2, 0.6]]
+      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kiV = [[0, 10], [0.06, 0.18]]
 
     elif candidate == CAR.ACURA_ILX:
       ret.lateralParams.torqueBP, ret.lateralParams.torqueV = [[0, 3840], [0, 3840]]  # TODO: determine if there is a dead zone at the top end
